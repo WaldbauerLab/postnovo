@@ -1,12 +1,15 @@
 ''' Variables used across project '''
 
 import re
+import os
 
-from os.path import join, dirname, realpath
 from itertools import product
 from collections import OrderedDict
 from functools import partial
 
+
+# websites
+forest_dict_url = ''
 
 # standard constants
 proton_mass = 1.007276
@@ -45,24 +48,43 @@ di_near_isobaric_subs = {
     }
 
 # user args
-# run level settings: predict (default), train, test, optimize
-verbose = [True]
-run_type = ['predict']
-frag_mass_tols = []
-novor_files = []
-peaks_files = []
-pn_files = []
-min_prob = [0.5]
-min_len = [6]
-ref_file = [None]
-cores = [1]
+getopt_opts = ['help',
+               'quiet',
+               'train',
+               'test',
+               'optimize',
+               'iodir=',
+               'denovogui_path=',
+               'denovogui_mgf_path=',
+               #'frag_mass_tols=',
+               'novor_files=',
+               'peaks_files=',
+               'pn_files=',
+               'min_len=',
+               'min_prob=',
+               'db_search_ref_file=',
+               'fasta_ref_file=',
+               'cores=',
+               'param_file=']
 
-# directories
-postnovo_parent_dir = dirname(dirname(realpath(__file__)))
-test_dir = join(postnovo_parent_dir, 'test')
-training_dir = join(postnovo_parent_dir, 'training')
-userfiles_dir = join(postnovo_parent_dir, 'userfiles')
-output_dir = join(postnovo_parent_dir, 'output')
+help_str = '\n'.join(['postnovo.py',
+                      '--iodir <"/home/postnovo_io">',
+                      '--train',
+                      '--test',
+                      '--optimize',
+                      #'--frag_mass_tols <"0.3, 0.5">',
+                      '--novor_files <"novor_output_0.3.novor.csv, novor_output_0.5.novor.csv">',
+                      '--peaks_files <"peaks_output_0.3.csv, peaks_output_0.5.csv">',
+                      '--pn_files <"pn_output_0.3.mgf.out, pn_output_0.5.mgf.out">',
+                      '--denovogui_path <"/home/DeNovoGUI-1.15.5/DeNovoGUI-1.15.5.jar">',
+                      '--denovogui_mgf_path <"/home/ms_files/spectra.mgf">',
+                      '--db_search_ref_file <"proteome_discoverer_psm_table.csv">',
+                      '--fasta_ref_file <"fasta_file.faa">',
+                      '--cores <3>',
+                      '--min_len <9>',
+                      '--min_prob <0.75>',
+                      '--quiet',
+                      '--param_file <"param.json">'])
 
 # program constraints
 accepted_algs = ['novor', 'peaks', 'pn']
@@ -70,11 +92,31 @@ possible_alg_combos = []
 for numerical_alg_combo in list(product((0, 1), repeat = len(accepted_algs)))[1:]:
     possible_alg_combos.append(tuple([alg for i, alg in enumerate(accepted_algs) if numerical_alg_combo[i]]))
 seqs_reported_per_alg_dict = {'novor': 1, 'peaks': 20, 'pn': 20}
+frag_mass_tols = ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7']
 accepted_mass_tols = ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7']
 fixed_mod = 'Oxidation of M'
 variable_mod = 'Carbamidomethylation of C'
 frag_method = 'CID'
 frag_mass_analyzer = 'Trap'
+train_consensus_len = 8
+
+# run level settings: predict (default), train, test, optimize
+verbose = [True]
+run_type = ['predict']
+#frag_mass_tols = []
+novor_files = []
+peaks_files = []
+pn_files = []
+min_prob = [0.5]
+min_len = [train_consensus_len]
+min_ref_match_len = [8]
+db_search_ref_file = [None]
+fasta_ref_file = [None]
+cores = [1]
+
+# directories
+iodir = []
+training_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'training')
 
 # global info from user input
 alg_list = []
@@ -96,12 +138,12 @@ tol_basenames_dict = OrderedDict()
 ##                              '0.5': ['proteome-0.5.novor.csv', 'proteome-0.5.mgf.out'])
 
 # de novo output characteristics
-novor_seq_sub_fn = partial(re.sub(pattern = '\([^)]+\)|[0-9]', repl = ''))
-pn_seq_sub_fn = partial(re.sub(pattern = '[0-9\+\-\.\^]', repl = ''))
+novor_seq_sub_fn = partial(re.sub, pattern = '\([^)]+\)|[0-9]', repl = '')
+pn_seq_sub_fn = partial(re.sub, pattern = '[0-9\+\-\.\^]', repl = '')
 precursor_mass_tol = [4.0]
 
 # training parameters
-train_consensus_len = 6
+min_fdr = 0.05
 rf_n_estimators = 150
 rf_default_params = {('novor',): {'max_depth': 16, 'max_features': 'sqrt'},
                      ('pn',): {'max_depth': 12, 'max_features': 'sqrt'},
@@ -143,26 +185,40 @@ features_ordered_by_importance = ['rank score', 'pn score', 'avg novor aa score'
                                   '0.2', '0.7', '0.3', '0.4', '0.5', '0.6']
 
 # feature groups
+#feature_groups = {'novor score': ['avg novor aa score'],
+#                  'pn scores': ['rank score', 'pn score'],
+#                  'seq len': ['len'],
+#                  'retention time': ['retention time'],
+#                  'mass tolerance': ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7'],
+#                  'consensus info': ['avg rank', 'pn rank', 'peaks rank',
+#                                     'fraction novor parent len', 'fraction pn parent len',
+#                                     'is longest consensus', 'is top rank consensus'],
+#                  'mass tolerance match info': ['0.2 seq match', '0.3 seq match', '0.4 seq match',
+#                                          '0.5 seq match', '0.6 seq match', '0.7 seq match'],
+#                  'substitution info': ['mono-di isobaric sub score', 'di isobaric sub score',
+#                                        'mono-di near-isobaric sub score', 'di near-isobaric sub score'],
+#                  'inter-spectrum info': ['precursor seq agreement', 'precursor seq count']
+#                  }
+
 feature_groups = {'novor score': ['avg novor aa score'],
                   'pn scores': ['rank score', 'pn score'],
-                  'seq len': ['len'],
-                  'retention time': ['retention time'],
-                  'mass tolerance': ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7'],
+                  'other': ['retention time', 'len', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'],
                   'consensus info': ['avg rank', 'pn rank', 'peaks rank',
                                      'fraction novor parent len', 'fraction pn parent len',
                                      'is longest consensus', 'is top rank consensus'],
-                  'mass tolerance match info': ['0.2 match', '0.3 match', '0.4 match',
-                                          '0.5 match', '0.6 match', '0.7 match'],
+                  'mass tolerance agreement': ['0.2 seq match', '0.3 seq match', '0.4 seq match',
+                                          '0.5 seq match', '0.6 seq match', '0.7 seq match'],
                   'substitution info': ['mono-di isobaric sub score', 'di isobaric sub score',
                                         'mono-di near-isobaric sub score', 'di near-isobaric sub score'],
-                  'inter-spectrum info': ['precursor seq agreement', 'precursor seq count']
+                  'inter-spectrum agreement': ['precursor seq agreement', 'precursor seq count']
                   }
 
 # report
 reported_df_cols = ['seq', 'probability', 'ref match',
+                    'scan has db search PSM', 'de novo seq matches db search seq', 'correct de novo seq not found in db search',
                     'is novor seq', 'is peaks seq', 'is pn seq',
                     '0.2', '0.3', '0.4', '0.5', '0.6', '0.7',
-                    '0.2 match', '0.3 match', '0.4 match', '0.5 match', '0.6 match', '0.7 match',
+                    '0.2 seq match', '0.3 seq match', '0.4 seq match', '0.5 seq match', '0.6 seq match', '0.7 seq match',
                     'precursor seq agreement', 'precursor seq count',
                     'mono-di isobaric sub score', 'di isobaric sub score',
                     'mono-di near-isobaric sub score', 'di near-isobaric sub score',

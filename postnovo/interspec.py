@@ -3,8 +3,11 @@
 import numpy as np
 import pandas as pd
 
-from config import *
-from utils import *
+import postnovo.config as config
+import postnovo.utils as utils
+
+#import config
+#import utils
 
 from multiprocessing import Pool, current_process
 
@@ -12,29 +15,29 @@ multiprocessing_precursor_count = 0
 
 
 def update_prediction_df(prediction_df):
-    verbose_print()
+    utils.verbose_print()
 
-    verbose_print('setting up inter-spectrum comparison')
-    prediction_df['mass error'] = prediction_df['measured mass'] * precursor_mass_tol[0] * 10**-6
+    utils.verbose_print('setting up inter-spectrum comparison')
+    prediction_df['mass error'] = prediction_df['measured mass'] * config.precursor_mass_tol[0] * 10**-6
     prediction_df.reset_index(inplace = True)
-    prediction_df.set_index(is_alg_col_names, inplace = True)
+    prediction_df.set_index(config.is_alg_col_names, inplace = True)
     tol_group_key_list = []
-    for i, tol in enumerate(frag_mass_tols):
-        tol_group_key = [0] * len(frag_mass_tols)
+    for i, tol in enumerate(config.frag_mass_tols):
+        tol_group_key = [0] * len(config.frag_mass_tols)
         tol_group_key[i] = 1
         tol_group_key_list.append(tuple(tol_group_key))
     full_precursor_array_list = []
 
-    for multiindex_key in is_alg_col_multiindex_keys:
-        alg_combo = '-'.join([alg for i, alg in enumerate(alg_list) if multiindex_key[i]])
+    for multiindex_key in config.is_alg_col_multiindex_keys:
+        alg_combo = '-'.join([alg for i, alg in enumerate(config.alg_list) if multiindex_key[i]])
 
         alg_group_precursor_array_list = []
         alg_combo_df = prediction_df.xs(multiindex_key)
         alg_combo_df.reset_index(inplace = True)
-        alg_combo_df.set_index(frag_mass_tols, inplace = True)
+        alg_combo_df.set_index(config.frag_mass_tols, inplace = True)
 
         for tol_group_key in tol_group_key_list:
-            tol = frag_mass_tols[tol_group_key.index(1)]
+            tol = config.frag_mass_tols[tol_group_key.index(1)]
 
             try:
                 tol_df = alg_combo_df.xs(tol_group_key)[['seq', 'measured mass', 'mass error']]
@@ -61,19 +64,19 @@ def update_prediction_df(prediction_df):
 
             ## single processor method
             #tol_group_precursor_array_list = []
-            #verbose_print('performing inter-spectrum comparison for', alg_combo + ',', tol, 'Da seqs')
+            #utils.verbose_print('performing inter-spectrum comparison for', alg_combo + ',', tol, 'Da seqs')
             #for precursor_index in range(precursor_indices[-1] + 1):
             #    child_initialize(precursor_groups)
             #    tol_group_precursor_array_list.append(make_precursor_info_array(precursor_index))
 
             ## multiprocessing method
             precursor_range = range(precursor_indices[-1] + 1)
-            one_percent_number_precursors = len(precursor_range) / 100 / cores[0]
-            multiprocessing_pool = Pool(cores[0],
+            one_percent_number_precursors = len(precursor_range) / 100 / config.cores[0]
+            multiprocessing_pool = Pool(config.cores[0],
                                         initializer = child_initialize,
-                                        initargs = (precursor_groups, cores[0], one_percent_number_precursors)
+                                        initargs = (precursor_groups, config.cores[0], one_percent_number_precursors)
                                         )
-            verbose_print('performing inter-spectrum comparison for', alg_combo + ',', tol, 'Da seqs')
+            utils.verbose_print('performing inter-spectrum comparison for', alg_combo + ',', tol, 'Da seqs')
             tol_group_precursor_array_list = multiprocessing_pool.map(make_precursor_info_array,
                                                                       precursor_range)
             multiprocessing_pool.close()
@@ -89,8 +92,8 @@ def update_prediction_df(prediction_df):
 
     prediction_df.drop(['measured mass', 'mass error'], axis = 1, inplace = True)
     prediction_df.reset_index(inplace = True)
-    prediction_df.set_index(is_alg_col_names + ['scan'], inplace = True)
-    prediction_df.sort_index(level = ['scan'] + is_alg_col_names, inplace = True)
+    prediction_df.set_index(config.is_alg_col_names + ['scan'], inplace = True)
+    prediction_df.sort_index(level = ['scan'] + config.is_alg_col_names, inplace = True)
 
     return prediction_df
 
@@ -108,7 +111,7 @@ def make_precursor_info_array(precursor_index):
         if int(multiprocessing_precursor_count % one_percent_number_precursors) == 0:
             percent_complete = int(multiprocessing_precursor_count / one_percent_number_precursors)
             if percent_complete <= 100:
-                verbose_print_over_same_line('inter-spectrum comparison progress: ' + str(percent_complete) + '%')
+                utils.verbose_print_over_same_line('inter-spectrum comparison progress: ' + str(percent_complete) + '%')
 
     precursor_seqs = precursor_groups.get_group(precursor_index)['seq']
     precursor_group_size = len(precursor_seqs)
